@@ -96,50 +96,64 @@
     }
 
     function showNextQuestion() {
-      const container = document.getElementById("question-container");
+  const container = document.getElementById("question-container");
 
-      // 跳过不满足 requires 的问题
-      while (currentIndex < questionOrder.length) {
-        const qId = questionOrder[currentIndex];
-        const qInfo = flowData.questions[qId];
-        if (checkRequirements(qId, qInfo)) break;
-        currentIndex++;
-      }
+  // 跳过不满足 requires 的问题
+  while (currentIndex < questionOrder.length) {
+    const qId = questionOrder[currentIndex];
+    const qInfo = flowData.questions[qId];
+    if (checkRequirements(qId, qInfo)) break;
+    currentIndex++;
+  }
 
-      if (currentIndex >= questionOrder.length) {
-        // 所有问题完成，检查状态
-        const result = checkState();
-        if (result) {
-          container.innerHTML = `<h2>✅ 当前状态：${result.stateName}</h2><p>${result.desc}</p>`;
-        } else {
-          // 展示所有回答
-          const answerText = Object.entries(answers)
-            .map(([k, v]) => `${k}：${v}`)
-            .join("\n");
-          container.innerHTML = `
-            <h2>❌ 没有匹配任何状态</h2>
-            <h3>你的回答如下：</h3>
-            <pre>${answerText}</pre>
-          `;
-        }
-        return;
-      }
-
-      const qId = questionOrder[currentIndex];
-      const qInfo = flowData.questions[qId];
-
-      container.innerHTML = `<h3>${qInfo.text}</h3>`;
-      for (const opt of qInfo.options) {
-        const btn = document.createElement("button");
-        btn.textContent = opt;
-        btn.onclick = () => {
-          answers[qId] = opt;
-          currentIndex++;
-          showNextQuestion();
-        };
-        container.appendChild(btn);
-      }
+  if (currentIndex >= questionOrder.length) {
+    // 所有问题完成，也检查一次状态
+    const result = checkState();
+    if (result) {
+      container.innerHTML = `<h2>✅ 当前状态：${result.stateName}</h2><p>${result.desc}</p>`;
+    } else {
+      // 展示所有回答
+      const answerText = Object.entries(answers)
+        .map(([k, v]) => `${k}：${v}`)
+        .join("\n");
+      container.innerHTML = `
+        <h2>❌ 没有匹配任何状态</h2>
+        <h3>你的回答如下：</h3>
+        <pre>${answerText}</pre>
+      `;
     }
+    return;
+  }
+
+  const qId = questionOrder[currentIndex];
+  const qInfo = flowData.questions[qId];
+
+  container.innerHTML = `<h3>${qInfo.text}</h3>`;
+  for (const opt of qInfo.options) {
+    const btn = document.createElement("button");
+    btn.textContent = opt;
+    btn.onclick = () => {
+      answers[qId] = opt;
+
+      // 立即检查状态，如果匹配就显示并结束
+      const result = checkState();
+      if (result) {
+        container.innerHTML = `
+          <h2>✅ 当前状态：${result.stateName}</h2>
+          <p>${result.desc}</p>
+          <h3>你的回答如下：</h3>
+          <pre>${Object.entries(answers).map(([k,v])=>`${k}：${v}`).join("\n")}</pre>
+        `;
+        return; // 停止问下一个问题
+      }
+
+      // 没匹配状态就继续下一个问题
+      currentIndex++;
+      showNextQuestion();
+    };
+    container.appendChild(btn);
+  }
+}
 
     loadFlow();
   </script>
