@@ -1,14 +1,41 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
   <title>Status Test</title>
   <style>
+    body {
+      font-family: "Segoe UI", sans-serif;
+      background: #f5f5f5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 30px;
+    }
+    #question-container {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+      padding: 20px;
+      max-width: 500px;
+      width: 100%;
+      text-align: center;
+    }
     button {
       display: block;
-      margin: 5px 0;
-      padding: 10px;
-      width: 200px;
+      margin: 8px auto;
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 6px;
+      background-color: #0078d7;
+      color: white;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:hover {
+      background-color: #005ea6;
     }
   </style>
 </head>
@@ -16,51 +43,89 @@
   <h1>Status Test</h1>
   <div id="question-container"></div>
 
-  <script type="module">
-    import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
+  <script>
+    let flowData = null;
+    let answers = {};
+    let questionOrder = [];
+    let currentIndex = 0;
 
-    let pyodide;
-
-    async function main() {
-      pyodide = await loadPyodide();
-      console.log("✅ Pyodide loaded");
-
-      // 载入 Python 代码
-      const statusScript = await (await fetch("status_test.py")).text();
-      await pyodide.runPythonAsync(statusScript);
-
-      // 载入 JSON 流程
-      const flowJson = await (await fetch("flow.json")).text();
-      pyodide.globals.set("flow_str", flowJson);
-
-      // 启动测试
-      await pyodide.runPythonAsync("run_status_test(flow_str)");
+    async function loadFlow() {
+      const res = await fetch("flow.json");
+      flowData = await res.json();
+      questionOrder = Object.keys(flowData.questions);
+      currentIndex = 0;
+      answers = {};
+      showNextQuestion();
     }
 
-    // 全局函数供 Python 调用
-    window.createButtonWithHandler = (container, text, qId, answer, flow) => {
-      const btn = document.createElement("button");
-      btn.innerText = text;
-      btn.dataset.qid = qId;
-      btn.dataset.answer = answer;
-      btn.dataset.flow = JSON.stringify(flow); // 存储必要信息
-      
-      btn.addEventListener("click", async (ev) => {
-        const qId = ev.target.dataset.qid;
-        const answer = ev.target.dataset.answer;
-        
-        // 调用 Python 处理函数
-        await pyodide.runPythonAsync(`
-answers['${qId}'] = '${answer}'
-current_q_index += 1
-show_next_question(${ev.target.dataset.flow})
-`);
-      });
-      
-      container.appendChild(btn);
-    };
+    function checkRequirements(qId, qInfo) {
+      const requires = qInfo.requires;
+      if (!requires) return true;
+      for (const preQ in requires) {
+        if (!(preQ in answers)) return false;
+        if (!requires[preQ].includes(answers[preQ])) return false;
+      }
+      return true;
+    }
 
-    main();
+    function checkState() {
+      const { states } = flowData;
+      for (const [stateName, stateInfo] of Object.entries(states)) {
+        for (const condition of stateInfo.conditions) {
+          let ok = true;
+          for (const [q, expected] of Object.entries(condition)) {
+            if (!(q in answers)) { ok = false; break; }
+            if (Array.isArray(expected)) {
+              if (!expected.includes(answers[q])) { ok = false; break; }
+            } else {
+              if (answers[q] !== expected) { ok = false; break; }
+            }
+          }
+          if (ok) return { stateName, desc: stateInfo.description };
+        }
+      }
+      return null;
+    }
+
+    function showNextQuestion() {
+      const container = document.getElementById("question-container");
+
+      // 跳过不满足 requires 的问题
+      while (currentIndex < questionOrder.length) {
+        const qId = questionOrder[currentIndex];
+        const qInfo = flowData.questions[qId];
+        if (checkRequirements(qId, qInfo)) break;
+        currentIndex++;
+      }
+
+      if (currentIndex >= questionOrder.length) {
+        // 所有问题完成，检查状态
+        const result = checkState();
+        if (result) {
+          container.innerHTML = `<h2>✅ 当前状态：${result.stateName}</h2><p>${result.desc}</p>`;
+        } else {
+          container.innerHTML = `<h2>❌ 没有匹配任何状态</h2>`;
+        }
+        return;
+      }
+
+      const qId = questionOrder[currentIndex];
+      const qInfo = flowData.questions[qId];
+
+      container.innerHTML = `<h3>${qInfo.text}</h3>`;
+      for (const opt of qInfo.options) {
+        const btn = document.createElement("button");
+        btn.textContent = opt;
+        btn.onclick = () => {
+          answers[qId] = opt;
+          currentIndex++;
+          showNextQuestion();
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    loadFlow();
   </script>
 </body>
 </html>
