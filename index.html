@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Status Test</title>
+</head>
+<body>
+  <h1>Status Test</h1>
+  <div id="question-container"></div>
+
+  <script src="https://cdn.jsdelivr.net/pyodide/v0.23.4/full/pyodide.js"></script>
+  <script>
+    async function main() {
+      const pyodide = await loadPyodide();
+
+      // 加载 Python 脚本
+      const statusScript = await (await fetch("status_test.py")).text();
+      pyodide.runPython(statusScript);
+
+      // 加载 flow.json
+      const flowJson = await (await fetch("flow.json")).text();
+      pyodide.globals.set("flow_str", flowJson);
+
+      // 调用 run_status_test
+      await pyodide.runPythonAsync(`run_status_test(flow_str)`);
+    }
+
+    main();
+  </script>
+</body>
+</html>
