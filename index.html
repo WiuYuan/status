@@ -37,6 +37,14 @@
     button:hover {
       background-color: #005ea6;
     }
+    pre {
+      text-align: left;
+      background: #f8f8f8;
+      padding: 10px;
+      border-radius: 6px;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
   </style>
 </head>
 <body>
@@ -104,7 +112,15 @@
         if (result) {
           container.innerHTML = `<h2>✅ 当前状态：${result.stateName}</h2><p>${result.desc}</p>`;
         } else {
-          container.innerHTML = `<h2>❌ 没有匹配任何状态</h2>`;
+          // 展示所有回答
+          const answerText = Object.entries(answers)
+            .map(([k, v]) => `${k}：${v}`)
+            .join("\n");
+          container.innerHTML = `
+            <h2>❌ 没有匹配任何状态</h2>
+            <h3>你的回答如下：</h3>
+            <pre>${answerText}</pre>
+          `;
         }
         return;
       }
