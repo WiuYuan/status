@@ -1,5 +1,5 @@
 import json
-from js import document
+from js import document, window
 
 answers = {}
 current_q_index = 0
@@ -85,19 +85,10 @@ def show_next_question(flow):
     container = document.getElementById("question-container")
     container.innerHTML = f"<h3>{q_info['text']}</h3>"
 
+    # 使用 JavaScript 函数创建按钮，确保事件处理器工作
     for opt in q_info["options"]:
-        btn = document.createElement("button")
-        btn.innerText = opt
-
-        # ✅ 使用 lambda + 默认参数捕获值，Pyodide 新版支持良好
-        btn.addEventListener(
-            "click", lambda ev, answer=opt, q_id=q_id: handle_answer(flow, q_id, answer)
-        )
-        container.appendChild(btn)
+        window.createButtonWithHandler(container, opt, q_id, opt, flow)
 
 
-def handle_answer(flow, q_id, answer):
-    global current_q_index, answers
-    answers[q_id] = answer
-    current_q_index += 1
-    show_next_question(flow)
+# 使函数在全局可用
+from pyodide import create_proxy

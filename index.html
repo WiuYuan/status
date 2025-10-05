@@ -3,6 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <title>Status Test</title>
+  <style>
+    button {
+      display: block;
+      margin: 5px 0;
+      padding: 10px;
+      width: 200px;
+    }
+  </style>
 </head>
 <body>
   <h1>Status Test</h1>
@@ -11,8 +19,10 @@
   <script type="module">
     import { loadPyodide } from "https://cdn.jsdelivr.net/pyodide/v0.26.2/full/pyodide.mjs";
 
+    let pyodide;
+
     async function main() {
-      const pyodide = await loadPyodide();
+      pyodide = await loadPyodide();
       console.log("✅ Pyodide loaded");
 
       // 载入 Python 代码
@@ -26,6 +36,29 @@
       // 启动测试
       await pyodide.runPythonAsync("run_status_test(flow_str)");
     }
+
+    // 全局函数供 Python 调用
+    window.createButtonWithHandler = (container, text, qId, answer, flow) => {
+      const btn = document.createElement("button");
+      btn.innerText = text;
+      btn.dataset.qid = qId;
+      btn.dataset.answer = answer;
+      btn.dataset.flow = JSON.stringify(flow); // 存储必要信息
+      
+      btn.addEventListener("click", async (ev) => {
+        const qId = ev.target.dataset.qid;
+        const answer = ev.target.dataset.answer;
+        
+        // 调用 Python 处理函数
+        await pyodide.runPythonAsync(`
+answers['${qId}'] = '${answer}'
+current_q_index += 1
+show_next_question(${ev.target.dataset.flow})
+`);
+      });
+      
+      container.appendChild(btn);
+    };
 
     main();
   </script>
